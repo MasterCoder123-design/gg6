@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Space Shooter</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: black; }
+        canvas { display: block; }
+        .game-over { color: white; font-size: 30px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; }
+    </style>
+</head>
+<body>
+    <div id="gameOverText" class="game-over">Game Over! Press Space to Restart</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, spaceship, asteroidGroup, laserGroup, gameOver = false, score = 0;
+        let lasers = [], asteroids = [];
+        let leftPressed = false, rightPressed = false, spacePressed = false;
+
+        // Initialize scene, camera, and renderer
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Spaceship (3D cube)
+            const geometry = new THREE.BoxGeometry(1, 1, 3);
+            const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            spaceship = new THREE.Mesh(geometry, material);
+            spaceship.position.set(0, -5, -10);
+            scene.add(spaceship);
+
+            // Asteroids (spheres)
+            asteroidGroup = new THREE.Group();
+            scene.add(asteroidGroup);
+
+            // Lasers
+            laserGroup = new THREE.Group();
+            scene.add(laserGroup);
+
+            camera.position.z = 5;
+
+            // Controls
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'ArrowLeft') leftPressed = true;
+                if (e.code === 'ArrowRight') rightPressed = true;
+                if (e.code === 'Space') spacePressed = true;
+            });
+
+            document.addEventListener('keyup', (e) => {
+                if (e.code === 'ArrowLeft') leftPressed = false;
+                if (e.code === 'ArrowRight') rightPressed = false;
+                if (e.code === 'Space') spacePressed = false;
+            });
+
+            animate();
+        }
+
+        // Create an asteroid
+        function createAsteroid() {
+            const geometry = new THREE.SphereGeometry(1, 16, 16);
+            const material = new THREE.MeshBasicMaterial({ color: 0x888888 });
+            const asteroid = new THREE.Mesh(geometry, material);
+            asteroid.position.set(Math.random() * 10 - 5, 5, Math.random() * 5 - 10);
+            asteroidGroup.add(asteroid);
+            asteroids.push(asteroid);
+        }
+
+        // Create a laser
+        function createLaser() {
+            const geometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 8);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const laser = new THREE.Mesh(geometry, material);
+            laser.position.set(spaceship.position.x, spaceship.position.y, spaceship.position.z);
+            laser.rotation.x = Math.PI / 2;
+            laserGroup.add(laser);
+            lasers.push(laser);
+        }
+
+        // Move the spaceship
+        function moveSpaceship() {
+            if (leftPressed) spaceship.position.x -= 0.1;
+            if (rightPressed) spaceship.position.x += 0.1;
+            spaceship.position.x = Math.max(-5, Math.min(5, spaceship.position.x)); // Keep within bounds
+        }
+
+        // Move lasers
+        function moveLasers() {
+            lasers.forEach((laser, index) => {
+                laser.position.y += 0.2;
+                if (laser.position.y > 5) {
+                    laserGroup.remove(laser);
+                    lasers.splice(index, 1);
+                }
+            });
+        }
+
+        // Move asteroids
+        function moveAsteroids() {
+            asteroids.forEach((asteroid, index) => {
+                asteroid.position.y -= 0.05;
+                if (asteroid.position.y < -5) {
+                    asteroidGroup.remove(asteroid);
+                    asteroids.splice(index, 1);
+                }
+            });
+        }
+
+        // Collision detection
+        function checkCollisions() {
+            lasers.forEach((laser, laserIndex) => {
+                asteroids.forEach((asteroid, asteroidIndex) => {
+                    const dist = laser.position.distanceTo(asteroid.position);
+                    if (dist < 1) {
+                        asteroidGroup.remove(asteroid);
+                        laserGroup.remove(laser);
+                        asteroids.splice(asteroidIndex, 1);
+                        lasers.splice(laserIndex, 1);
+                        score += 10;
+                    }
+                });
+            });
+
+            asteroids.forEach(asteroid => {
+                const dist = spaceship.position.distanceTo(asteroid.position);
+                if (dist < 1.5) {
+                    gameOver = true;
+                    document.getElementById('gameOverText').style.display = 'block';
+                }
+            });
+        }
+
+        // Animation loop
+        function animate() {
+            if (gameOver) return;
+
+            moveSpaceship();
+            moveLasers();
+            moveAsteroids();
+            checkCollisions();
+
+            if (Math.random() < 0.02) createAsteroid();
+            if (spacePressed) createLaser();
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+
+        // Restart the game
+        function resetGame() {
+            gameOver = false;
+            spaceship.position.set(0, -5, -10);
+            laserGroup.clear();
+            asteroidGroup.clear();
+            score = 0;
+            document.getElementById('gameOverText').style.display = 'none';
+            animate();
+        }
+
+        // Key press for restart
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && gameOver) {
+                resetGame();
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
